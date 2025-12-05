@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Nunito, JetBrains_Mono, PT_Serif } from "next/font/google";
+import { JetBrains_Mono, Nunito, PT_Serif } from "next/font/google";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -22,7 +22,7 @@ const ptSerif = PT_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Qubic Lens | Ghibli Edition",
+  title: "Qubic Lens",
   description: "X-Ray Vision for Smart Contracts",
 };
 
@@ -32,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${nunito.variable} ${jetbrains.variable} ${ptSerif.variable}`}>
+    <html lang="en" className={`dark ${nunito.variable} ${jetbrains.variable} ${ptSerif.variable}`}>
       <body className="font-sans antialiased bg-background text-foreground">
         {children}
       </body>
