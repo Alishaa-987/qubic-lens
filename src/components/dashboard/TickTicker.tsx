@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useQubicStore } from '@/store/useQubicStore'
-import { Activity, Clock, Zap, Wifi, WifiOff } from 'lucide-react'
-import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useQubicStore } from '@/store/useQubicStore'
+import { motion } from 'framer-motion'
+import { Activity, Clock, Wifi, WifiOff, Zap } from 'lucide-react'
+import { useEffect } from 'react'
 
 export function TickTicker() {
     const { tickData, startPolling, stopPolling, isLive } = useQubicStore()
@@ -88,7 +88,7 @@ export function TickTicker() {
                             {tickData.epoch}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(tickData.timestamp || Date.now()).toLocaleTimeString()}
+                            {new Date(tickData.timestamp || Date.now).toLocaleTimeString()}
                         </p>
                     </CardContent>
                 </Card>
