@@ -27,8 +27,9 @@ import {
 } from '@/components/ui/sidebar'
 
 import { Separator } from '@/components/ui/separator'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 
-// Custom Components
 import { Debugger } from '@/components/dashboard/Debugger'
 import { NetworkStatsView } from '@/components/dashboard/NetworkStatsView'
 import { SmartContractsView } from '@/components/dashboard/SmartContractsView'
@@ -156,8 +157,28 @@ export default function QubicLensDashboard() {
           </header>
 
           <main className='flex-1 overflow-y-auto p-6 space-y-6'>
-            
-            {/* CONDITIONAL RENDER */}
+
+            <section>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Input Data</CardTitle>
+                  <CardDescription>Upload transaction hash and source code for analysis</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium">Transaction Hash</label>
+                      <Input type="text" placeholder="Enter transaction hash" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Source Code (CPP)</label>
+                      <Input type="file" accept=".cpp,.hpp,.c,.h" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+
             <section className="min-h-[600px] flex flex-col">
               {activeView === 'trace' && (
                   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -171,7 +192,6 @@ export default function QubicLensDashboard() {
                   </div>
               )}
 
-              {/* PASS THE CLICK HANDLER HERE */}
               {activeView === 'contracts' && <SmartContractsView onTxClick={handleTxClick} />}
               
                {activeView === 'network' && <NetworkStatsView onTxClick={handleTxClick} />}
