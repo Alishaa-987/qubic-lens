@@ -42,7 +42,7 @@ export default function QubicLensDashboard() {
 
   // THE MAGIC FUNCTION
   const handleTxClick = (txHash: string) => {
-    store.loadTransaction(txHash)
+    store.loadTraceByHash(txHash)
     setActiveView('trace')
   }
 
