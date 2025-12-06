@@ -7,15 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { useTraceStore } from '@/store/useTraceStore'
 import {
-  AlertCircle // Added for error state
-  ,
-
+  AlertCircle,
   Box,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   CornerDownRight,
   Cpu,
+  Layers,
   Pause,
   Play,
   RotateCcw,
@@ -45,7 +44,7 @@ export function Debugger() {
   }, [store.isPlaying, store])
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[700px] font-sans">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[750px] font-sans">
       
       {/* =========================================
           LEFT PANEL: CODE EDITOR & CONTROLS
@@ -56,7 +55,7 @@ export function Debugger() {
         <div className="h-14 bg-muted/20 backdrop-blur flex items-center justify-between px-4 border-b border-border">
           <div className="flex items-center gap-4 flex-1">
              
-             {/* SEARCH BAR */}
+             {/* SEARCH BAR (Dynamic Cartridge Loader) */}
              <div className="relative group w-64 hidden sm:block">
                 <Search className="absolute left-2 top-2.5 w-4 h-4 text-muted-foreground group-focus-within:text-blue-500 transition-colors" />
                 <input 
@@ -85,7 +84,7 @@ export function Debugger() {
              </div>
           </div>
           
-          {/* PLAYBACK CONTROLS */}
+          {/* PLAYBACK CONTROLS (VCR Style) */}
           <div className="flex items-center gap-2 bg-[#1a1a1a] rounded-md p-1.5 border border-border">
              <button 
                 onClick={() => store.setStep(0)} 
@@ -144,7 +143,7 @@ export function Debugger() {
             {store.code}
           </SyntaxHighlighter>
           
-          {/* FLOATING INSTRUCTION CARD */}
+          {/* FLOATING OP-CODE CARD */}
           <div className="absolute bottom-6 right-8 bg-card/90 backdrop-blur-md border border-border p-4 rounded-lg shadow-2xl flex flex-col gap-2 min-w-[200px] animate-in slide-in-from-bottom-2 fade-in duration-300">
             <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Current Opcode</div>
             <div className={cn("text-sm font-mono font-bold flex items-center gap-2", frame.isError ? "text-red-500" : "text-blue-400")}>
@@ -173,40 +172,40 @@ export function Debugger() {
       </Card>
 
       {/* =========================================
-          RIGHT PANEL: DATA & STATE
+          RIGHT PANEL: DATA & STATE (DAP INTEGRATED)
          ========================================= */}
-      <div className="lg:col-span-4 flex flex-col gap-6">
+      <div className="lg:col-span-4 flex flex-col gap-4">
         
-        {/* A. STATE CHANGES */}
-        <Card className="flex-1 flex flex-col overflow-hidden border-border bg-card shadow-lg">
-           <div className="p-4 border-b border-border bg-muted/20 font-bold text-xs text-muted-foreground uppercase tracking-wider flex justify-between items-center">
+        {/* A. MEMORY DELTA (Diff View) */}
+        <Card className="flex flex-col overflow-hidden border-border bg-card shadow-lg min-h-[160px]">
+           <div className="p-3 border-b border-border bg-muted/20 font-bold text-xs text-muted-foreground uppercase tracking-wider flex justify-between items-center">
              <div className="flex items-center gap-2">
                 <Box size={14} /> Memory Delta
              </div>
              {frame.diff && <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200 text-[10px] px-1.5">Active Write</Badge>}
            </div>
            
-           <div className="flex-1 p-6 flex items-center justify-center bg-card/50">
+           <div className="flex-1 p-4 flex items-center justify-center bg-card/50">
              {!frame.diff ? (
                <div className="text-center text-muted-foreground/50">
-                 <CheckCircle2 className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                 <CheckCircle2 className="w-8 h-8 mx-auto mb-2 opacity-20" />
                  <p className="text-xs font-medium">State remains stable</p>
                </div>
              ) : (
-               <div className="w-full space-y-4 animate-in zoom-in-95 duration-200">
+               <div className="w-full space-y-3 animate-in zoom-in-95 duration-200">
                  <div className="flex justify-between items-center text-xs pb-2 border-b border-border/50">
-                   <span className="font-bold text-muted-foreground uppercase">Target Variable</span>
+                   <span className="font-bold text-muted-foreground uppercase">Target</span>
                    <span className="font-mono text-foreground font-bold bg-muted px-2 py-0.5 rounded">{frame.diff.var}</span>
                  </div>
                  
-                 <div className="grid grid-cols-2 gap-3">
-                   <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                      <div className="text-[10px] text-red-400 uppercase font-bold mb-1">Previous</div>
-                      <div className="font-mono text-red-400 font-bold text-lg">{frame.diff.old}</div>
+                 <div className="grid grid-cols-2 gap-2">
+                   <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+                      <div className="text-[10px] text-red-400 uppercase font-bold mb-1">Old</div>
+                      <div className="font-mono text-red-400 font-bold text-sm">{frame.diff.old}</div>
                    </div>
-                   <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                      <div className="text-[10px] text-green-400 uppercase font-bold mb-1">New Value</div>
-                      <div className="font-mono text-green-400 font-bold text-lg">{frame.diff.new}</div>
+                   <div className="p-2 bg-green-500/10 border border-green-500/20 rounded-lg">
+                      <div className="text-[10px] text-green-400 uppercase font-bold mb-1">New</div>
+                      <div className="font-mono text-green-400 font-bold text-sm">{frame.diff.new}</div>
                    </div>
                  </div>
                </div>
@@ -214,8 +213,23 @@ export function Debugger() {
            </div>
         </Card>
 
-        {/* B. MULTI-TOOL PANEL (State + AI) */}
-        <div className="h-1/2 flex flex-col shadow-lg">
+        {/* B. CALL STACK (DAP Feature) */}
+        <Card className="border-border bg-card shadow-sm p-0 overflow-hidden">
+            <div className="p-2 border-b border-border bg-muted/20 text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <Layers size={14} /> Call Stack
+            </div>
+            <div className="p-0">
+                {store.getDAPStackFrames().map((stackFrame) => (
+                    <div key={stackFrame.id} className="flex justify-between items-center p-2 px-4 hover:bg-muted/10 border-b border-border/40 last:border-0 text-xs font-mono transition-colors">
+                        <span className="text-blue-400 font-bold">{stackFrame.name}</span>
+                        <span className="text-muted-foreground">{stackFrame.source?.name}:{stackFrame.line}</span>
+                    </div>
+                ))}
+            </div>
+        </Card>
+
+        {/* C. MULTI-TOOL PANEL (State + AI) */}
+        <div className="flex-1 flex flex-col shadow-lg overflow-hidden">
             <Tabs defaultValue="state" className="h-full flex flex-col">
                 <TabsList className="w-full bg-muted/20 border-b border-border p-0 justify-start h-9 rounded-t-lg rounded-b-none">
                     <TabsTrigger value="state" className="text-xs font-mono h-full rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent">
@@ -226,14 +240,15 @@ export function Debugger() {
                     </TabsTrigger>
                 </TabsList>
 
-                {/* TAB 1: RAW STATE */}
+                {/* TAB 1: RAW STATE (Using DAP Protocol) */}
                 <TabsContent value="state" className="flex-1 mt-0 border border-t-0 border-border bg-card rounded-b-lg overflow-hidden">
                     <div className="h-full overflow-auto p-0">
                         <div className="divide-y divide-border/50">
-                            {Object.entries(frame.memory).map(([key, val]) => (
-                                <div key={key} className="flex justify-between items-center p-2 px-4 hover:bg-muted/10 transition-colors text-xs">
-                                    <span className="font-mono text-muted-foreground">{key}</span>
-                                    <span className="font-mono font-bold text-blue-400">{val}</span>
+                            {/* Fetch Variables for Scope Ref 2 (Global) */}
+                            {store.getDAPVariables(2).map((variable) => (
+                                <div key={variable.name} className="flex justify-between items-center p-2 px-4 hover:bg-muted/10 transition-colors text-xs">
+                                    <span className="font-mono text-muted-foreground">{variable.name}</span>
+                                    <span className="font-mono font-bold text-blue-400">{variable.value}</span>
                                 </div>
                             ))}
                         </div>

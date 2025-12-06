@@ -1,8 +1,9 @@
 import { SCENARIOS, TraceFrame } from '@/data/mockScenarios'
+import { DAP } from '@/lib/dap'
 import { create } from 'zustand'
 
 interface TraceState {
-  // Data
+  // Core Data
   txHash: string
   code: string
   data: TraceFrame[]
@@ -12,8 +13,13 @@ interface TraceState {
   stepIndex: number
   isPlaying: boolean
   
-  // Computed
+  // Computed (Helper to get current frame data)
   currentFrame: () => TraceFrame
+  
+  // DAP ADAPTER SELECTORS (The "God Mode" conversions)
+  getDAPStackFrames: () => DAP.StackFrame[]
+  getDAPScopes: () => DAP.Scope[]
+  getDAPVariables: (reference: number) => DAP.Variable[]
   
   // Actions
   loadTransaction: (hash: string) => void
@@ -23,7 +29,6 @@ interface TraceState {
   togglePlay: () => void
 }
 
-// Default to the first scenario
 const DEFAULT_HASH = '0x8f...2a' 
 
 export const useTraceStore = create<TraceState>((set, get) => ({
@@ -40,11 +45,77 @@ export const useTraceStore = create<TraceState>((set, get) => ({
     return data[stepIndex] || data[0]
   },
 
-  // THE NEW FUNCTION: LOADS A NEW CARTRIDGE
+  // ----------------------------------------------
+  // DAP ADAPTER IMPLEMENTATION
+  // ----------------------------------------------
+  
+  // Convert our custom "stack" array into DAP StackFrames
+  getDAPStackFrames: () => {
+    const frame = get().currentFrame()
+    
+    // We assume the last item in our mock stack is the top frame
+    // In a real debugger, we'd have full stack data.
+    // Here we simulate it based on the mock data.
+    return [
+        {
+            id: 1, // Top frame
+            name: frame.label, // e.g. "deposit(100)"
+            line: frame.line,
+            column: 1,
+            source: { name: 'contract.cpp' }
+        },
+        {
+            id: 2, // Caller
+            name: 'main()',
+            line: 1,
+            column: 1,
+            source: { name: 'system' }
+        }
+    ]
+  },
+
+  // Define Scopes (Local, Global)
+  getDAPScopes: () => {
+    return [
+        { name: 'Locals', variablesReference: 1, expensive: false },
+        { name: 'Global State', variablesReference: 2, expensive: false }
+    ]
+  },
+
+  // Get Variables based on the Scope Reference
+  getDAPVariables: (ref: number) => {
+    const frame = get().currentFrame()
+    
+    if (ref === 1) { // LOCALS
+        // Extract arguments from memory (simplified logic)
+        return Object.entries(frame.memory)
+            .filter(([key]) => key !== 'balance' && key !== 'deposits') // Exclude globals
+            .map(([key, val], i) => ({
+                name: key,
+                value: String(val),
+                type: 'uint64',
+                variablesReference: 0
+            }))
+    }
+    
+    if (ref === 2) { // GLOBALS
+        return [
+            { name: 'state.balance', value: String(frame.memory.balance), type: 'uint64', variablesReference: 0 },
+            { name: 'state.totalDeposits', value: String(frame.memory.deposits || 0), type: 'uint64', variablesReference: 0 }
+        ]
+    }
+
+    return []
+  },
+
+  // ----------------------------------------------
+  // ACTIONS
+  // ----------------------------------------------
+
   loadTransaction: (hash: string) => {
     const scenario = SCENARIOS[hash]
     if (!scenario) {
-        console.warn("Tx Hash not found in mock DB")
+        console.warn("Tx Hash not found")
         return
     }
     
@@ -53,7 +124,7 @@ export const useTraceStore = create<TraceState>((set, get) => ({
         code: scenario.code,
         data: scenario.trace,
         traceLength: scenario.trace.length,
-        stepIndex: 0, // Reset to start
+        stepIndex: 0,
         isPlaying: false
     })
   },
