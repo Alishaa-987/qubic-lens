@@ -174,7 +174,7 @@ export default function QubicLensDashboard() {
               {/* PASS THE CLICK HANDLER HERE */}
               {activeView === 'contracts' && <SmartContractsView onTxClick={handleTxClick} />}
               
-              {activeView === 'network' && <NetworkStatsView />}
+               {activeView === 'network' && <NetworkStatsView onTxClick={handleTxClick} />}
             </section>
 
           </main>
