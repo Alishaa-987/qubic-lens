@@ -38,7 +38,7 @@ import { SmartContractsView } from '@/components/dashboard/SmartContractsView'
 import { useTraceStore } from '@/store/useTraceStore'
 
 export default function QubicLensDashboard() {
-  const [activeView, setActiveView] = useState<'trace' | 'contracts' | 'network'>('trace')
+  const [activeView, setActiveView] = useState<'trace' | 'contracts' | 'network'>('contracts')
   const store = useTraceStore()
 
   // THE MAGIC FUNCTION
@@ -157,27 +157,6 @@ export default function QubicLensDashboard() {
           </header>
 
           <main className='flex-1 overflow-y-auto p-6 space-y-6'>
-
-            <section>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Input Data</CardTitle>
-                  <CardDescription>Upload transaction hash and source code for analysis</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium">Transaction Hash</label>
-                      <Input type="text" placeholder="Enter transaction hash" />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Source Code (CPP)</label>
-                      <Input type="file" accept=".cpp,.hpp,.c,.h" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </section>
 
             <section className="min-h-[600px] flex flex-col">
               {activeView === 'trace' && (
