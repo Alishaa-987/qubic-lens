@@ -27,8 +27,9 @@ import {
 } from '@/components/ui/sidebar'
 
 import { Separator } from '@/components/ui/separator'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 
-// Custom Components
 import { Debugger } from '@/components/dashboard/Debugger'
 import { NetworkStatsView } from '@/components/dashboard/NetworkStatsView'
 import { SmartContractsView } from '@/components/dashboard/SmartContractsView'
@@ -37,7 +38,7 @@ import { SmartContractsView } from '@/components/dashboard/SmartContractsView'
 import { useTraceStore } from '@/store/useTraceStore'
 
 export default function QubicLensDashboard() {
-  const [activeView, setActiveView] = useState<'trace' | 'contracts' | 'network'>('trace')
+  const [activeView, setActiveView] = useState<'trace' | 'contracts' | 'network'>('contracts')
   const store = useTraceStore()
 
   // THE MAGIC FUNCTION
@@ -156,8 +157,7 @@ export default function QubicLensDashboard() {
           </header>
 
           <main className='flex-1 overflow-y-auto p-6 space-y-6'>
-            
-            {/* CONDITIONAL RENDER */}
+
             <section className="min-h-[600px] flex flex-col">
               {activeView === 'trace' && (
                   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -171,7 +171,6 @@ export default function QubicLensDashboard() {
                   </div>
               )}
 
-              {/* PASS THE CLICK HANDLER HERE */}
               {activeView === 'contracts' && <SmartContractsView onTxClick={handleTxClick} />}
               
                {activeView === 'network' && <NetworkStatsView onTxClick={handleTxClick} />}

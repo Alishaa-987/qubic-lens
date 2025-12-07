@@ -1,9 +1,14 @@
 'use client'
 
+import { useState } from 'react'
+import { z } from 'zod'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { FileUpload } from '@/components/ui/file-upload'
 import { Input } from '@/components/ui/input'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+
 import {
     Box,
     ExternalLink,
@@ -33,9 +38,118 @@ interface SmartContractsViewProps {
 }
 
 export function SmartContractsView({ onTxClick }: SmartContractsViewProps) {
+  const [showUploadForm, setShowUploadForm] = useState(false)
+  const [contracts, setContracts] = useState(MOCK_CONTRACTS)
+  const [uploadedJson, setUploadedJson] = useState<any>(null)
+  const [uploadedCpp, setUploadedCpp] = useState<string>('')
+  const [cppFile, setCppFile] = useState<File | null>(null)
+
+  // Zod schemas for validation
+  const jsonSchema = z.object({
+    // Fake schema, assume has some fields
+    any: z.any()
+  }).passthrough()
+
+  const cppSchema = z.string().refine((val) => val.includes('#include') || val.includes('int main'), {
+    message: "Invalid C++ file"
+  })
+
+ 
+
+  const handleJsonUpload = (file: File) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string)
+        // Validate with Zod
+        jsonSchema.parse(data)
+        setUploadedJson(data)
+      } catch (error) {
+        console.error('Invalid JSON file:', error)
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  const handleCppUpload = (file: File) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const content = e.target?.result as string
+      try {
+        // Validate with Zod
+        cppSchema.parse(content)
+        setUploadedCpp(content)
+        setCppFile(file)
+      } catch (error) {
+        console.error('Invalid C++ file:', error)
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  const handleSubmit = () => {
+    if (uploadedCpp && cppFile) {
+      const newContract = {
+        name: cppFile.name.replace('.cpp', ''),
+        address: '0x' + Math.random().toString(16).substr(2, 8) + '...new',
+        type: 'Uploaded',
+        balance: '0 QU',
+        txs: 0,
+        status: 'pending',
+        version: 'v1.0'
+      }
+      setContracts(prev => [...prev, newContract])
+      // Reset
+      setUploadedJson(null)
+      setUploadedCpp('')
+      setCppFile(null)
+      setShowUploadForm(false)
+    }
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      
+
+      {/* INPUT SECTION - Only show when deploy clicked */}
+      {showUploadForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Upload Files</CardTitle>
+            <CardDescription>Upload trans.json and C++ source code for analysis</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium block mb-2">Transaction JSON (trans.json)</label>
+                <FileUpload
+                  onFileSelect={handleJsonUpload}
+                  accept={{ "application/json": [".json"] }}
+                  placeholder="Drop trans.json here or click to browse"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-2">C++ Source Code (.cpp)</label>
+                <FileUpload
+                  onFileSelect={handleCppUpload}
+                  accept={{ "text/x-c": [".cpp", ".hpp", ".c", ".h"] }}
+                  placeholder="Drop .cpp file here or click to browse"
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button
+                onClick={handleSubmit}
+                disabled={!uploadedCpp}
+                className="bg-green-600 hover:bg-green-500 text-white font-bold"
+              >
+                Submit
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
       {/* ACTION BAR */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 flex-1">
@@ -47,9 +161,11 @@ export function SmartContractsView({ onTxClick }: SmartContractsViewProps) {
                 <Filter className="w-4 h-4 mr-2" /> Filter
             </Button>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-500 text-white font-bold">
-            <Plus className="w-4 h-4 mr-2" /> Deploy Contract
-        </Button>
+        {!showUploadForm && (
+          <Button onClick={() => setShowUploadForm(true)} className="bg-blue-600 hover:bg-blue-500 text-white font-bold">
+              <Plus className="w-4 h-4 mr-2" /> Deploy Contract
+          </Button>
+        )}
       </div>
 
       {/* CONTRACTS TABLE */}
@@ -68,7 +184,7 @@ export function SmartContractsView({ onTxClick }: SmartContractsViewProps) {
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
-                    {MOCK_CONTRACTS.map((contract, i) => (
+                    {contracts.map((contract, i) => (
                         <tr 
                             key={i} 
                             onClick={() => onTxClick(contract.address)}
@@ -123,6 +239,7 @@ export function SmartContractsView({ onTxClick }: SmartContractsViewProps) {
             </table>
         </div>
       </Card>
+
     </div>
   )
 }
