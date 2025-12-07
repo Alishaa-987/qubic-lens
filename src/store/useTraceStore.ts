@@ -10,18 +10,22 @@ const convertMockToSession = (hash: string): TraceSession | null => {
     if (!scenario) return null
 
     // The old mock used a different shape, we adapt it here.
-    const frames: ExecutionFrame[] = scenario.trace.map(f => ({
-        id: f.id,
-        line: f.line,
-        type: f.type,
-        label: f.label,
-        gasTotal: f.gas, // Old 'gas' was cumulative
-        depth: f.depth,
-        memory: f.memory,
-        stack: f.stack,
-        aiAnalysis: f.aiAnalysis,
-        isError: f.isError,
-    }));
+    const frames: ExecutionFrame[] = scenario.trace.map((f, index) => {
+        const prevGas = index > 0 ? scenario.trace[index - 1].gas : 0;
+        return {
+            id: f.id,
+            line: f.line,
+            type: f.type,
+            label: f.label,
+            gasCost: f.gas - prevGas,
+            gasTotal: f.gas,
+            depth: f.depth,
+            memory: f.memory,
+            stack: f.stack,
+            aiAnalysis: f.aiAnalysis,
+            error: f.isError ? "Error" : undefined,
+        };
+    });
 
     const lastFrame = frames[frames.length - 1];
     return {
@@ -33,14 +37,14 @@ const convertMockToSession = (hash: string): TraceSession | null => {
         },
         frames,
         totalGas: lastFrame.gasTotal,
-        status: lastFrame.isError ? 'REVERT' : 'SUCCESS',
+        status: lastFrame.error ? 'REVERT' : 'SUCCESS',
     }
 }
 // --- END ADAPTER ---
 
 // An empty frame to return when no session is loaded, preventing UI errors.
 const EMPTY_FRAME: ExecutionFrame = {
-    id: 0, line: 0, type: 'IDLE', label: 'No Trace Loaded', gasTotal: 0,
+    id: 0, line: 0, type: 'IDLE', label: 'No Trace Loaded', gasCost: 0, gasTotal: 0,
     depth: 0, memory: {}, stack: [], aiAnalysis: 'Load a transaction to begin.'
 }
 
@@ -58,6 +62,7 @@ interface TraceState {
 
   // Selectors
   isLoaded: () => boolean
+  txHash: () => string
   currentFrame: () => ExecutionFrame
   currentComputedFrame: () => ComputedFrame
 
@@ -83,6 +88,8 @@ export const useTraceStore = create<TraceState>((set, get) => ({
   isPlaying: false,
 
   isLoaded: () => get().session !== null,
+
+  txHash: () => get().session?.txHash ?? '',
 
   currentFrame: () => {
     const { session, stepIndex } = get()
@@ -115,7 +122,7 @@ export const useTraceStore = create<TraceState>((set, get) => ({
     const frame = get().currentFrame()
     if (frame.type === 'IDLE') return [];
     return [
-      { id: 1, name: frame.label, line: frame.line, column: 1, source: { name: get().session?.artifact.fileName } },
+      { id: 1, name: frame.label, line: frame.line, column: 1, source: { name: get().session?.artifact.fileName || 'unknown' } },
       { id: 2, name: 'main()', line: 1, column: 1, source: { name: 'system' } }
     ]
   },

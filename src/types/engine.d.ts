@@ -12,14 +12,16 @@ export interface ExecutionFrame {
     id: number;           // Sequence number
     line: number;         // Line number in source
     type: string;         // e.g., 'CALL', 'OPCODE', 'EVENT'
+    label: string;        // Human-readable description
     gasCost: number;      // Gas used in this specific step
     gasTotal: number;     // Cumulative gas
     depth: number;        // Call stack depth
     memory: Record<string, any>; // Snapshot of variables
     stack: string[];      // Raw stack values
-    
+    aiAnalysis: string;   // AI-generated analysis
+
     // Optional diagnostics
-    error?: string;       
+    error?: string;
     logs?: string[];
 }
 

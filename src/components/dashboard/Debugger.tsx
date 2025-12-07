@@ -142,7 +142,7 @@ export function Debugger() {
             wrapLines={true}
             lineProps={(lineNumber) => {
               const isActive = isLoaded && lineNumber === frame.line
-              const isError = isLoaded && frame.isError && isActive
+              const isError = isLoaded && !!frame.error && isActive
               return {
                 style: {
                   backgroundColor: isError ? 'rgba(239, 68, 68, 0.2)' : isActive ? 'rgba(59, 130, 246, 0.15)' : undefined,
@@ -161,8 +161,8 @@ export function Debugger() {
           {isLoaded && (
             <div className="absolute bottom-6 right-8 bg-card/90 backdrop-blur-md border border-border p-4 rounded-lg shadow-2xl flex flex-col gap-2 min-w-[200px] animate-in slide-in-from-bottom-2 fade-in duration-300">
               <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Current Opcode</div>
-              <div className={cn("text-sm font-mono font-bold flex items-center gap-2", frame.isError ? "text-red-500" : "text-blue-400")}>
-                  {frame.isError ? <AlertCircle size={14}/> : <CornerDownRight size={14} />}
+              <div className={cn("text-sm font-mono font-bold flex items-center gap-2", !!frame.error ? "text-red-500" : "text-blue-400")}>
+                  {!!frame.error ? <AlertCircle size={14}/> : <CornerDownRight size={14} />}
                   {frame.type}
               </div>
             </div>
@@ -278,7 +278,7 @@ export function Debugger() {
 
                 {/* TAB 2: AI ANALYST */}
                 <TabsContent value="ai" className="flex-1 mt-0">
-                    <AIInsightPanel analysis={frame.aiAnalysis || "Analysis pending..."} isActive={true} isError={frame.isError} />
+                    <AIInsightPanel analysis={frame.aiAnalysis || "Analysis pending..."} isActive={true} isError={!!frame.error} />
                 </TabsContent>
             </Tabs>
         </div>
