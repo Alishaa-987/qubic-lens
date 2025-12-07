@@ -43,7 +43,7 @@ export default function QubicLensDashboard() {
 
   // THE MAGIC FUNCTION
   const handleTxClick = (txHash: string) => {
-    store.loadTransaction(txHash)
+    store.loadTraceByHash(txHash)
     setActiveView('trace')
   }
 
@@ -140,7 +140,7 @@ export default function QubicLensDashboard() {
                  {activeView === 'trace' && (
                     <div className="flex flex-col">
                         <span className="text-sm font-bold text-foreground">Transaction Trace</span>
-                        <span className="text-[10px] text-muted-foreground font-mono">{store.txHash}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">{store.txHash()}</span>
                     </div>
                  )}
                  {activeView === 'contracts' && <span className="text-sm font-bold text-foreground">Contract Management Hub</span>}

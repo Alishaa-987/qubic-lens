@@ -27,8 +27,10 @@ import { AIInsightPanel } from './AIInsightPanel'
 
 export function Debugger() {
   const store = useTraceStore()
-  const frame = store.currentFrame()
-  
+  const frame = store.currentComputedFrame()
+  const session = store.session
+  const isLoaded = store.isLoaded()
+
   // Local state for the search bar
   const [inputHash, setInputHash] = useState('')
 
@@ -41,7 +43,7 @@ export function Debugger() {
       }, 1000) // 1 second per step
     }
     return () => clearInterval(interval)
-  }, [store.isPlaying, store])
+  }, [store, store.isPlaying, store.nextStep])
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[750px] font-sans">
@@ -66,22 +68,24 @@ export function Debugger() {
                     onChange={(e) => setInputHash(e.target.value)}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                            store.loadTransaction(inputHash)
+                            store.loadTraceByHash(inputHash)
                             setInputHash('')
                         }
                     }}
                 />
              </div>
 
-             <div className="flex items-center gap-2">
-                <Badge className="bg-blue-900/20 text-blue-400 border-blue-500/50 font-mono text-[10px] hidden md:flex">
-                    {store.txHash}
-                </Badge>
-                <div className="flex items-center gap-2 text-xs text-zinc-400">
-                    <Cpu size={14} />
-                    <span>Gas: <span className="text-zinc-200 font-mono">{frame.gas} QU</span></span>
+             {isLoaded && (
+                <div className="flex items-center gap-2">
+                    <Badge className="bg-blue-900/20 text-blue-400 border-blue-500/50 font-mono text-[10px] hidden md:flex">
+                        {session?.txHash}
+                    </Badge>
+                    <div className="flex items-center gap-2 text-xs text-zinc-400">
+                        <Cpu size={14} />
+                        <span>Gas: <span className="text-zinc-200 font-mono">{frame.gasTotal} QU</span></span>
+                    </div>
                 </div>
-             </div>
+             )}
           </div>
           
           {/* PLAYBACK CONTROLS (VCR Style) */}
@@ -89,16 +93,22 @@ export function Debugger() {
              <button 
                 onClick={() => store.setStep(0)} 
                 title="Reset"
-                className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+                className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!isLoaded}
              >
                 <RotateCcw size={14}/>
              </button>
              <Separator orientation="vertical" className="h-4 bg-[#333]" />
-             <button onClick={store.prevStep} className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded transition-colors"><ChevronLeft size={16}/></button>
+             <button 
+                onClick={store.prevStep} 
+                className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!isLoaded}
+             ><ChevronLeft size={16}/></button>
              <button 
                onClick={store.togglePlay}
+               disabled={!isLoaded}
                className={cn(
-                   "flex items-center gap-2 px-4 py-1 rounded text-xs font-bold transition-all mx-1",
+                   "flex items-center gap-2 px-4 py-1 rounded text-xs font-bold transition-all mx-1 disabled:opacity-50 disabled:cursor-not-allowed",
                    store.isPlaying 
                     ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30" 
                     : "bg-blue-600 text-white hover:bg-blue-500"
@@ -107,7 +117,11 @@ export function Debugger() {
                {store.isPlaying ? <Pause size={12}/> : <Play size={12}/>}
                {store.isPlaying ? 'PAUSE' : 'DEBUG'}
              </button>
-             <button onClick={store.nextStep} className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded transition-colors"><ChevronRight size={16}/></button>
+             <button 
+                onClick={store.nextStep} 
+                className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!isLoaded}
+             ><ChevronRight size={16}/></button>
           </div>
         </div>
 
@@ -127,8 +141,8 @@ export function Debugger() {
             showLineNumbers={true}
             wrapLines={true}
             lineProps={(lineNumber) => {
-              const isActive = lineNumber === frame.line
-              const isError = frame.isError && isActive
+              const isActive = isLoaded && lineNumber === frame.line
+              const isError = isLoaded && !!frame.error && isActive
               return {
                 style: {
                   backgroundColor: isError ? 'rgba(239, 68, 68, 0.2)' : isActive ? 'rgba(59, 130, 246, 0.15)' : undefined,
@@ -140,17 +154,19 @@ export function Debugger() {
               }
             }}
           >
-            {store.code}
+            {session?.artifact.code ?? "// Load a transaction trace to begin debugging..."}
           </SyntaxHighlighter>
           
           {/* FLOATING OP-CODE CARD */}
-          <div className="absolute bottom-6 right-8 bg-card/90 backdrop-blur-md border border-border p-4 rounded-lg shadow-2xl flex flex-col gap-2 min-w-[200px] animate-in slide-in-from-bottom-2 fade-in duration-300">
-            <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Current Opcode</div>
-            <div className={cn("text-sm font-mono font-bold flex items-center gap-2", frame.isError ? "text-red-500" : "text-blue-400")}>
-                {frame.isError ? <AlertCircle size={14}/> : <CornerDownRight size={14} />}
-                {frame.type}
+          {isLoaded && (
+            <div className="absolute bottom-6 right-8 bg-card/90 backdrop-blur-md border border-border p-4 rounded-lg shadow-2xl flex flex-col gap-2 min-w-[200px] animate-in slide-in-from-bottom-2 fade-in duration-300">
+              <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Current Opcode</div>
+              <div className={cn("text-sm font-mono font-bold flex items-center gap-2", !!frame.error ? "text-red-500" : "text-blue-400")}>
+                  {!!frame.error ? <AlertCircle size={14}/> : <CornerDownRight size={14} />}
+                  {frame.type}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* SCRUBBER TIMELINE */}
@@ -158,14 +174,19 @@ export function Debugger() {
           <input 
             type="range"
             min="0"
-            max={store.traceLength - 1}
+            max={(session?.frames.length ?? 1) - 1}
             value={store.stepIndex}
             onChange={(e) => store.setStep(parseInt(e.target.value))}
-            className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-blue-600 hover:accent-blue-500 transition-all"
+            className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-blue-600 hover:accent-blue-500 transition-all disabled:bg-muted/50 disabled:accent-muted"
+            disabled={!isLoaded}
           />
           <div className="flex justify-between mt-3 text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
              <span>Start</span>
-             <span className="text-blue-400">Step {store.stepIndex + 1} / {store.traceLength}</span>
+             {isLoaded ? (
+                <span className="text-blue-400">Step {store.stepIndex + 1} / {session?.frames.length}</span>
+             ) : (
+                <span>- / -</span>
+             )}
              <span>End</span>
           </div>
         </div>
@@ -186,7 +207,7 @@ export function Debugger() {
            </div>
            
            <div className="flex-1 p-4 flex items-center justify-center bg-card/50">
-             {!frame.diff ? (
+             {!frame.diff || !isLoaded ? (
                <div className="text-center text-muted-foreground/50">
                  <CheckCircle2 className="w-8 h-8 mx-auto mb-2 opacity-20" />
                  <p className="text-xs font-medium">State remains stable</p>
@@ -257,7 +278,7 @@ export function Debugger() {
 
                 {/* TAB 2: AI ANALYST */}
                 <TabsContent value="ai" className="flex-1 mt-0">
-                    <AIInsightPanel analysis={frame.aiAnalysis || "Analysis pending..."} isActive={true} />
+                    <AIInsightPanel analysis={frame.aiAnalysis || "Analysis pending..."} isActive={true} isError={!!frame.error} />
                 </TabsContent>
             </Tabs>
         </div>

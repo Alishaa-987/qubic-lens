@@ -1,146 +1,179 @@
-import { SCENARIOS, TraceFrame } from '@/data/mockScenarios'
+import { SCENARIOS } from '@/data/mockScenarios'
 import { DAP } from '@/lib/dap'
+import { ExecutionFrame, TraceSession } from '@/types/engine'
 import { create } from 'zustand'
 
+// --- ADAPTER: Converts old mock data to the new TraceSession format ---
+// This is temporary and will be removed when we have a real data source.
+const convertMockToSession = (hash: string): TraceSession | null => {
+    const scenario = SCENARIOS[hash]
+    if (!scenario) return null
+
+    // The old mock used a different shape, we adapt it here.
+    const frames: ExecutionFrame[] = scenario.trace.map((f, index) => {
+        const prevGas = index > 0 ? scenario.trace[index - 1].gas : 0;
+        return {
+            id: f.id,
+            line: f.line,
+            type: f.type,
+            label: f.label,
+            gasCost: f.gas - prevGas,
+            gasTotal: f.gas,
+            depth: f.depth,
+            memory: f.memory,
+            stack: f.stack,
+            aiAnalysis: f.aiAnalysis,
+            error: f.isError ? "Error" : undefined,
+        };
+    });
+
+    const lastFrame = frames[frames.length - 1];
+    return {
+        txHash: hash,
+        timestamp: Date.now(),
+        artifact: {
+            fileName: 'contract.cpp',
+            code: scenario.code,
+        },
+        frames,
+        totalGas: lastFrame.gasTotal,
+        status: lastFrame.error ? 'REVERT' : 'SUCCESS',
+    }
+}
+// --- END ADAPTER ---
+
+// An empty frame to return when no session is loaded, preventing UI errors.
+const EMPTY_FRAME: ExecutionFrame = {
+    id: 0, line: 0, type: 'IDLE', label: 'No Trace Loaded', gasCost: 0, gasTotal: 0,
+    depth: 0, memory: {}, stack: [], aiAnalysis: 'Load a transaction to begin.'
+}
+
+// A computed frame with additional UI-specific data.
+export interface ComputedFrame extends ExecutionFrame {
+    diff: { var: string; old: any; new: any } | null;
+}
+const EMPTY_COMPUTED_FRAME: ComputedFrame = { ...EMPTY_FRAME, diff: null };
+
+
 interface TraceState {
-  // Core Data
-  txHash: string
-  code: string
-  data: TraceFrame[]
-  traceLength: number
-  
-  // Playback State
+  session: TraceSession | null
   stepIndex: number
   isPlaying: boolean
-  
-  // Computed (Helper to get current frame data)
-  currentFrame: () => TraceFrame
-  
-  // DAP ADAPTER SELECTORS (The "God Mode" conversions)
+
+  // Selectors
+  isLoaded: () => boolean
+  txHash: () => string
+  currentFrame: () => ExecutionFrame
+  currentComputedFrame: () => ComputedFrame
+
+  // DAP Selectors
   getDAPStackFrames: () => DAP.StackFrame[]
   getDAPScopes: () => DAP.Scope[]
   getDAPVariables: (reference: number) => DAP.Variable[]
-  
+
   // Actions
-  loadTransaction: (hash: string) => void
+  loadTraceByHash: (hash: string) => void
+  loadTraceSession: (session: TraceSession) => void
   setStep: (step: number) => void
   nextStep: () => void
   prevStep: () => void
   togglePlay: () => void
 }
 
-const DEFAULT_HASH = '0x8f...2a' 
+const DEFAULT_HASH = '0x8f...2a'
 
 export const useTraceStore = create<TraceState>((set, get) => ({
-  txHash: DEFAULT_HASH,
-  code: SCENARIOS[DEFAULT_HASH].code,
-  data: SCENARIOS[DEFAULT_HASH].trace,
-  traceLength: SCENARIOS[DEFAULT_HASH].trace.length,
-  
+  session: convertMockToSession(DEFAULT_HASH),
   stepIndex: 0,
   isPlaying: false,
 
+  isLoaded: () => get().session !== null,
+
+  txHash: () => get().session?.txHash ?? '',
+
   currentFrame: () => {
-    const { data, stepIndex } = get()
-    return data[stepIndex] || data[0]
+    const { session, stepIndex } = get()
+    return session?.frames[stepIndex] ?? EMPTY_FRAME
   },
 
-  // ----------------------------------------------
-  // DAP ADAPTER IMPLEMENTATION
-  // ----------------------------------------------
-  
-  // Convert our custom "stack" array into DAP StackFrames
+  currentComputedFrame: () => {
+    const { session, stepIndex } = get()
+    if (!session) return EMPTY_COMPUTED_FRAME;
+
+    const current = session.frames[stepIndex];
+    const prev = session.frames[stepIndex - 1];
+    
+    // Compute diff on the fly
+    let diff: ComputedFrame['diff'] = null;
+    if (prev) {
+        const memoryKeys = Object.keys(current.memory);
+        for(const key of memoryKeys) {
+            if (current.memory[key] !== prev.memory[key]) {
+                diff = { var: key, old: prev.memory[key], new: current.memory[key] };
+                break;
+            }
+        }
+    }
+    return { ...current, diff };
+  },
+
+  // --- DAP ADAPTER IMPLEMENTATION (Updated) ---
   getDAPStackFrames: () => {
     const frame = get().currentFrame()
-    
-    // We assume the last item in our mock stack is the top frame
-    // In a real debugger, we'd have full stack data.
-    // Here we simulate it based on the mock data.
+    if (frame.type === 'IDLE') return [];
     return [
-        {
-            id: 1, // Top frame
-            name: frame.label, // e.g. "deposit(100)"
-            line: frame.line,
-            column: 1,
-            source: { name: 'contract.cpp' }
-        },
-        {
-            id: 2, // Caller
-            name: 'main()',
-            line: 1,
-            column: 1,
-            source: { name: 'system' }
-        }
+      { id: 1, name: frame.label, line: frame.line, column: 1, source: { name: get().session?.artifact.fileName || 'unknown' } },
+      { id: 2, name: 'main()', line: 1, column: 1, source: { name: 'system' } }
     ]
   },
 
-  // Define Scopes (Local, Global)
   getDAPScopes: () => {
+    if (!get().isLoaded()) return [];
     return [
-        { name: 'Locals', variablesReference: 1, expensive: false },
-        { name: 'Global State', variablesReference: 2, expensive: false }
+      { name: 'Locals', variablesReference: 1, expensive: false },
+      { name: 'Global State', variablesReference: 2, expensive: false }
     ]
   },
 
-  // Get Variables based on the Scope Reference
   getDAPVariables: (ref: number) => {
     const frame = get().currentFrame()
-    
-    if (ref === 1) { // LOCALS
-        // Extract arguments from memory (simplified logic)
-        return Object.entries(frame.memory)
-            .filter(([key]) => key !== 'balance' && key !== 'deposits') // Exclude globals
-            .map(([key, val], i) => ({
-                name: key,
-                value: String(val),
-                type: 'uint64',
-                variablesReference: 0
-            }))
+    if (frame.type === 'IDLE') return [];
+    // This logic can be refined, but demonstrates the principle
+     if (ref === 2) { // GLOBALS
+        return Object.entries(frame.memory).map(([key, val]) => ({
+            name: `state.${key}`, value: String(val), type: 'uint64', variablesReference: 0
+        }));
     }
-    
-    if (ref === 2) { // GLOBALS
-        return [
-            { name: 'state.balance', value: String(frame.memory.balance), type: 'uint64', variablesReference: 0 },
-            { name: 'state.totalDeposits', value: String(frame.memory.deposits || 0), type: 'uint64', variablesReference: 0 }
-        ]
-    }
-
     return []
   },
 
-  // ----------------------------------------------
-  // ACTIONS
-  // ----------------------------------------------
-
-  loadTransaction: (hash: string) => {
-    const scenario = SCENARIOS[hash]
-    if (!scenario) {
-        console.warn("Tx Hash not found")
-        return
+  // --- ACTIONS (Updated) ---
+  loadTraceByHash: (hash: string) => {
+    const session = convertMockToSession(hash)
+    if (session) {
+      set({ session, stepIndex: 0, isPlaying: false })
+    } else {
+      console.warn(`No mock scenario found for hash: ${hash}`)
     }
-    
-    set({
-        txHash: hash,
-        code: scenario.code,
-        data: scenario.trace,
-        traceLength: scenario.trace.length,
-        stepIndex: 0,
-        isPlaying: false
-    })
+  },
+
+  loadTraceSession: (session: TraceSession) => {
+      set({ session, stepIndex: 0, isPlaying: false });
   },
 
   setStep: (step) => {
-    const { traceLength } = get()
-    const safeStep = Math.max(0, Math.min(step, traceLength - 1))
+    const session = get().session
+    if (!session) return
+    const safeStep = Math.max(0, Math.min(step, session.frames.length - 1))
     set({ stepIndex: safeStep })
   },
   
   nextStep: () => {
-    const { stepIndex, traceLength } = get()
-    if (stepIndex < traceLength - 1) {
-      set({ stepIndex: stepIndex + 1 })
-    } else {
+    const { stepIndex, session } = get()
+    if (!session || stepIndex >= session.frames.length - 1) {
       set({ isPlaying: false })
+    } else {
+      set({ stepIndex: stepIndex + 1 })
     }
   },
   
